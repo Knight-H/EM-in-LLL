@@ -1,12 +1,13 @@
-j
 from pytorch_transformers import BertForSequenceClassification, BertTokenizer, BertConfig
 import GPUtil
 import argparse
 import datetime
 import logging
 import os
+import random
 import shutil
 import torch
+import numpy as np
 
 model_classes = {
     'bert': (BertConfig, BertForSequenceClassification, BertTokenizer),
@@ -50,9 +51,21 @@ def parse_train_args():
     parser.add_argument("--valid_ratio", type=float, default=0)
     parser.add_argument("--warmup_steps", type=int, default=0)
     parser.add_argument("--weight_decay", type=float, default=0)
+    # Knight Added Arguments
+    parser.add_argument("--adapt_lambda", type=float, default=1e-3)
+    parser.add_argument("--adapt_steps", type=int, default=30)
+    parser.add_argument('--inner_lr', type=float, help='Inner-loop learning rate', default=1e-5)
     parser.add_argument('--seed', type=int, default=42)
-
+    parser.add_argument('--write_prob', type=float, help='Write probability for buffer memory', default=1.0)
+    # For Few Rel
+    parser.add_argument('--order', type=int, help='Number of task orders to run for', default=5)
+    parser.add_argument('--num_clusters', type=int, help='Number of clusters to take', default=10)
+    
     args = parser.parse_args()
+    
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
     if args.debug:
         args.n_train = 500

@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import pickle
 import os
+import random
 from tqdm import tqdm
 import logging
 logger = logging.getLogger(__name__)
@@ -26,7 +27,11 @@ class Memory:
         self.tree = NearestNeighbors(n_jobs=args.n_workers)
         self.built_tree = False
 
-    def add(self, input_ids, masks, labels):
+    # Update keys, input_ids, and labels
+    def add(self, input_ids, masks, labels, write_prob=1.):
+        # If not in range, ignore write_prob
+        if random.random() > write_prob:
+            return
         if self.built_tree:
             logging.warning("Tree already build! Ignore add.")
             return
@@ -63,14 +68,14 @@ class Memory:
         self.input_ids = np.array(self.input_ids, dtype=object)
         self.labels = np.array(self.labels)
 
-
+    # Knight Edit: make self.input_ids and self.labels do np.array on the fly
     def query(self, input_ids, masks):
-        if not self.built_tree:
-            logging.warning("Tree not built! Ignore query.")
-            return
+        #if not self.built_tree:
+        #    logging.warning("Tree not built! Ignore query.")
+        #    return
         outputs = self.model(input_ids=input_ids, attention_mask=masks)
         queries = outputs[0][:, 0, :].cpu().numpy()
         inds = self.tree.kneighbors(queries, n_neighbors=self.n_neighbors, return_distance=False)
-        input_ids, masks = list(zip(*[pad_to_max_len(input_id) for input_id in self.input_ids[inds]]))
-        labels = [torch.tensor(label, dtype=torch.long) for label in self.labels[inds]]
+        input_ids, masks = list(zip(*[pad_to_max_len(input_id) for input_id in np.array(self.input_ids, dtype=object)[inds]]))
+        labels = [torch.tensor(label, dtype=torch.long) for label in np.array(self.labels)[inds]]
         return input_ids, masks, labels
